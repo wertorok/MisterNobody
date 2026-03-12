@@ -1,0 +1,40 @@
+model_list:
+  - model_name: claude-3-5-sonnet-20241022
+    litellm_params:
+      model: openai/qwen/qwen3.5-397b-a17b
+      api_base: https://integrate.api.nvidia.com/v1
+      api_key: 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
+      max_tokens: 16384
+      temperature: 0.60
+      top_p: 0.95
+
+  - model_name: claude-3-7-sonnet-20250219
+    litellm_params:
+      model: openai/qwen/qwen3.5-397b-a17b
+      api_base: https://integrate.api.nvidia.com/v1
+      api_key: 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
+      max_tokens: 16384
+      temperature: 0.60
+      top_p: 0.95
+
+  - model_name: claude-opus-4-6
+    litellm_params:
+      model: openai/qwen/qwen3.5-397b-a17b
+      api_base: https://integrate.api.nvidia.com/v1
+      api_key: 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
+      max_tokens: 16384
+      temperature: 0.60
+      top_p: 0.95
+
+  - model_name: claude-sonnet-4-6
+    litellm_params:
+      model: openai/qwen/qwen3.5-397b-a17b
+      api_base: https://integrate.api.nvidia.com/v1
+      api_key: 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
+      max_tokens: 16384
+      temperature: 0.60
+      top_p: 0.95
+
+litellm_settings:
+  drop_params: true
+  set_verbose: false
