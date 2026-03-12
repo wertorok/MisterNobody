@@ -1,4 +1,6 @@
-import { Client, LocalAuth, type Message } from 'whatsapp-web.js'
+import wwjs from 'whatsapp-web.js'
+const { Client, LocalAuth } = wwjs
+type Message = wwjs.Message
 import qrcode from 'qrcode-terminal'
 import {
   saveWaMessage,
