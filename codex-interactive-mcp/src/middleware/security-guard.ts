@@ -209,18 +209,14 @@ export class SecurityGuard {
       // Safe auto paths
       const safeMatch = matchesAny(RULES.safe_auto_paths, target)
       if (safeMatch) {
-        if (request.action === 'delete_file') {
-          // Deletion always requires confirmation
-          return {
-            verdict: 'NEEDS_CLAUDE',
-            reason: `safe_auto_path but delete requires confirmation: ${safeMatch}`,
-            matched_rule: safeMatch,
-          }
-        }
-        // create/modify: auto-approve (don't wake Claude for test files, README etc.)
+        // Cache check already happened above (step 2). Reaching here means no cache hit.
+        // First occurrence → NEEDS_CLAUDE so Claude reads the reasoning, understands
+        // what Codex is doing, and can create a cache rule for subsequent files.
+        // Subsequent occurrences hit the cache at step 2 → AUTO_APPROVE without waking Claude.
+        // Deletion always requires explicit confirmation regardless of cache.
         return {
-          verdict: 'AUTO_APPROVE',
-          reason: `safe_auto_path matched: ${safeMatch}`,
+          verdict: 'NEEDS_CLAUDE',
+          reason: `safe_auto_path matched (no cache rule yet): ${safeMatch}`,
           matched_rule: safeMatch,
         }
       }
