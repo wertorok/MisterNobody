@@ -1,0 +1,10 @@
+{
+  "extraKnownMarketplaces": {
+    "remotion-dev": {
+      "source": {
+        "source": "github",
+        "repo": "remotion-dev/skills"
+      }
+    }
+  }
+}
