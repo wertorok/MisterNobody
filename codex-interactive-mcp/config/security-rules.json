@@ -1,0 +1,68 @@
+{
+  "_comment_matcher_type": "All patterns in this file are RegExp (not glob). Matched via new RegExp(pattern).test(normalized_target)",
+
+  "critical_commands": [
+    "rm -rf",
+    "sudo ",
+    "chmod 7",
+    "curl.*\\|.*bash",
+    "wget.*\\|.*sh",
+    "ssh ",
+    "scp ",
+    "git push --force",
+    "git reset --hard",
+    "docker.*down.*-v",
+    "kubectl delete",
+    "DROP TABLE",
+    "DELETE FROM"
+  ],
+
+  "critical_paths": [
+    "\\.env$",
+    "\\.env\\.",
+    "private\\.key",
+    "\\.pem$",
+    "id_rsa",
+    "\\.ssh/",
+    "secrets/",
+    "credentials",
+    "\\.npmrc$"
+  ],
+
+  "warning_commands": [
+    "mv ",
+    "cp -r",
+    "find.*-delete",
+    "git commit",
+    "npm publish",
+    "npx ",
+    "node ",
+    "python ",
+    "bash ",
+    "sh "
+  ],
+
+  "warning_paths": [
+    "package\\.json$",
+    "package-lock\\.json$",
+    "yarn\\.lock$",
+    "tsconfig.*\\.json$",
+    "dockerfile",
+    "\\.github/",
+    "migration",
+    "schema\\.prisma",
+    "\\.gitignore$"
+  ],
+
+  "safe_auto_paths": [
+    "\\.test\\.",
+    "\\.spec\\.",
+    "__tests__/",
+    "__mocks__/",
+    "\\.md$",
+    "\\.txt$",
+    "\\.log$",
+    "\\.stories\\.",
+    "\\.example\\."
+  ]
+}
