@@ -1,161 +1,342 @@
-# Prompt-to-Deploy Pipeline
+# Prompt-to-Deploy Pipeline — Architecture v2
 
 ## What This Is
-
-A linear automation pipeline that takes a text prompt and returns a deployed website URL.
-No human intervention between input and output.
 
 ```
 You: "Сделай лендинг для доставки еды с корзиной и формой заказа"
       ↓
-Pipeline: plan → scaffold → code → verify → fix → deploy
+Pipeline: [SUPERVISOR controls everything]
       ↓
 You: https://your-site-abc123.vercel.app
 ```
 
-## Architecture
+---
+
+## Who Controls What
+
+### The Supervisor (`lib/supervisor.mjs`)
+
+The supervisor is the **only entity that sees everything**. It is NOT an LLM — it's deterministic code.
 
 ```
-┌─────────────────────────────────────────────────┐
-│  run.sh "prompt text"                           │
-│                                                 │
-│  ┌───────────┐    plan.json                     │
-│  │  PLAN     │──────────────┐                   │
-│  │  (opus)   │              │                   │
-│  └───────────┘              ▼                   │
-│                      ┌─────────────┐            │
-│                      │  SCAFFOLD   │            │
-│                      │  (sonnet)   │            │
-│                      └──────┬──────┘            │
-│                             │                   │
-│                      ┌──────▼──────┐            │
-│                      │    CODE     │            │
-│                      │  (sonnet)   │            │
-│                      └──────┬──────┘            │
-│                             │                   │
-│                      ┌──────▼──────┐  fail      │
-│                      │   VERIFY    │────────┐   │
-│                      │  (sonnet)   │        │   │
-│                      └──────┬──────┘        │   │
-│                        pass │         ┌─────▼─┐ │
-│                             │         │  FIX  │ │
-│                             │         └───┬───┘ │
-│                             │             │     │
-│                             │    ◄────────┘     │
-│                      ┌──────▼──────┐            │
-│                      │   DEPLOY    │            │
-│                      │  (vercel)   │            │
-│                      └──────┬──────┘            │
-│                             │                   │
-│                        site URL                 │
-└─────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│                      SUPERVISOR                              │
+│                                                              │
+│  Owns:                                                       │
+│  ├── State machine (what phase runs next)                    │
+│  ├── Contract validation (did the worker return valid JSON?) │
+│  ├── Drift detection (did the worker go off-plan?)           │
+│  ├── Retry policy (how many attempts per phase)              │
+│  ├── Worker isolation (what each worker can see)             │
+│  ├── Audit log (every decision, every transition)            │
+│  └── Abort logic (when to give up)                           │
+│                                                              │
+│  Does NOT:                                                   │
+│  ├── Write code                                              │
+│  ├── Make creative decisions                                 │
+│  ├── Call LLMs for its own reasoning                         │
+│  └── Trust workers blindly                                   │
+└──────────────────────────────────────────────────────────────┘
 ```
 
-## Design Decisions
+### Workers (Claude Code CLI sessions)
 
-### Why not Paperclip/OpenClaw?
+Workers are **disposable, stateless, isolated sessions**. Each worker:
+- Starts fresh (no memory of previous workers)
+- Sees ONLY what the supervisor gives it
+- Returns structured output
+- Has no idea what happens next
+- Cannot communicate with other workers
 
-| Feature | Need it? | Why not |
-|---------|----------|---------|
-| Org charts | No | No "employees", just pipeline phases |
-| Approvals | No | "без меня вообще" = zero human gates |
-| Chat channels | No | Input = CLI, Output = URL |
-| Budgets | No | Pipeline is finite, not ongoing |
-| Heartbeats | No | Push model, not pull |
-| Sub-agents | No | Sequential phases, not parallel agents |
+---
 
-### Why Claude Code CLI?
-
-- `claude -p` runs non-interactive with a prompt
-- `--output-format json` gives structured output
-- `--allowedTools` scopes what each phase can do
-- Session persistence via `--resume` for fix loops
-- Already installed, zero infrastructure
-
-### Why Vercel?
-
-- `npx vercel --yes` deploys any framework with zero config
-- Supports Next.js, Vite, plain HTML, anything
-- Returns URL immediately
-- Free tier sufficient for generated sites
-
-## Phase Contracts
-
-### Phase 1: PLAN
-- **Input:** User prompt (text)
-- **Output:** `plan.json` — project spec, framework choice, file list, acceptance criteria
-- **Model:** opus (needs reasoning for good architecture)
-- **Tools:** None (pure generation)
-
-### Phase 2: SCAFFOLD
-- **Input:** `plan.json`
-- **Output:** Project directory with package.json, config files, empty structure
-- **Model:** sonnet (mechanical work)
-- **Tools:** Bash, Write
-
-### Phase 3: CODE
-- **Input:** `plan.json` + scaffolded project
-- **Output:** All source files written, all components implemented
-- **Model:** sonnet (bulk coding)
-- **Tools:** Read, Write, Edit, Bash
-
-### Phase 4: VERIFY
-- **Input:** Completed project
-- **Output:** `verify.json` — build status, lint status, issues list
-- **Model:** sonnet
-- **Tools:** Read, Bash (npm run build, npm run lint)
-- **Max retries:** 3 (loops back to FIX phase)
-
-### Phase 5: FIX (conditional)
-- **Input:** `verify.json` + project
-- **Output:** Fixed files
-- **Model:** sonnet
-- **Tools:** Read, Edit, Bash
-- **Trigger:** Only if VERIFY fails
-
-### Phase 6: DEPLOY
-- **Input:** Built project
-- **Output:** Live URL
-- **Method:** `npx vercel --yes --prod`
-- **No LLM needed** — pure CLI
-
-## File Structure
+## State Machine
 
 ```
-pipeline/
-├── run.sh                  # Entry point
-├── orchestrator.mjs        # Main pipeline logic
-├── lib/
-│   └── claude.mjs          # Claude Code CLI wrapper
-├── phases/
-│   ├── plan.md             # Plan phase prompt
-│   ├── scaffold.md         # Scaffold phase prompt
-│   ├── code.md             # Code phase prompt
-│   ├── verify.md           # Verify phase prompt
-│   └── fix.md              # Fix phase prompt
-└── ARCHITECTURE.md         # This file
+                    ┌──── reject ────┐
+                    ▼                │
+  init → PLANNING → PLAN_REVIEW ────┘
+                        │
+                      approve
+                        │
+                    ┌───▼───┐
+                    │SCAFFOLD│
+                    └───┬───┘
+                        │
+                  SCAFFOLD_CHECK
+                    │        │
+                  pass    reject → retry SCAFFOLD
+                    │
+                 ┌──▼──┐
+                 │ CODE │
+                 └──┬──┘
+                    │
+               CODE_REVIEW
+                    │
+              ┌─────▼─────┐    fail     ┌─────┐
+              │  VERIFY    │────────────▶│ FIX │
+              └─────┬──────┘             └──┬──┘
+                    │                       │
+                  pass              ┌───────┘
+                    │               │ (back to VERIFY)
+              ┌─────▼─────┐
+              │  DEPLOY    │
+              └─────┬──────┘
+                    │
+                  DONE
 ```
+
+Every transition is **explicit and logged**. Invalid transitions throw errors.
+
+### Transition Rules
+
+```javascript
+{
+  init:          → [planning]
+  planning:      → [plan_review]
+  plan_review:   → [scaffolding, planning]       // can reject
+  scaffolding:   → [scaffold_check]
+  scaffold_check:→ [coding, scaffolding]          // can reject
+  coding:        → [code_review]
+  code_review:   → [verifying, coding]            // can reject
+  verifying:     → [fixing, deploying, aborted]   // fail/pass/give up
+  fixing:        → [verifying]                    // always back to verify
+  deploying:     → [done, aborted]
+}
+```
+
+---
+
+## Isolation Policy — Who Sees What
+
+This is the most important design decision. **Workers cannot see each other.**
+
+```
+┌───────────────────────────────────────────────────────────────┐
+│                    SUPERVISOR (sees everything)                │
+│                                                               │
+│  ┌─────────┐   ┌──────────┐   ┌──────┐   ┌────────┐         │
+│  │ PLANNER │   │SCAFFOLDER│   │CODER │   │VERIFIER│   ...   │
+│  │         │   │          │   │      │   │        │         │
+│  │ Sees:   │   │ Sees:    │   │Sees: │   │ Sees:  │         │
+│  │ - prompt│   │ - plan   │   │- plan│   │ - plan │         │
+│  │         │   │          │   │      │   │(accept)│         │
+│  │ Cannot: │   │ Cannot:  │   │Can't:│   │        │         │
+│  │ - files │   │ - code   │   │- logs│   │ Cannot:│         │
+│  │ - logs  │   │   logs   │   │- fix │   │ - code │         │
+│  │ - state │   │ - verify │   │  logs│   │   logs │         │
+│  │         │   │   results│   │      │   │ - fix  │         │
+│  └─────────┘   └──────────┘   └──────┘   │   logs │         │
+│                                           └────────┘         │
+│                                                               │
+│  ┌──────┐                                                     │
+│  │FIXER │  Sees: verify verdict ONLY                         │
+│  │      │  Cannot: previous fix logs, code logs, plan details│
+│  └──────┘                                                     │
+└───────────────────────────────────────────────────────────────┘
+```
+
+### Why this isolation?
+
+| Problem | What isolation prevents |
+|---------|----------------------|
+| Coder copies scaffolder's mistakes | Coder never sees scaffold logs |
+| Fixer repeats same broken approach | Fixer never sees previous fix logs |
+| Verifier is biased by code intent | Verifier doesn't see code logs, only output |
+| Worker ignores plan, does own thing | Supervisor detects drift after each phase |
+| Worker hallucinates project state | Worker gets fresh context every time |
+
+### What each worker receives
+
+| Worker | Sees | Tools | Can modify files? |
+|--------|------|-------|-------------------|
+| Planner | User prompt only | None (generation only) | No |
+| Scaffolder | plan.json | Bash, Write, Read | Yes (create only) |
+| Coder | plan.json | Bash, Write, Edit, Read, Glob, Grep | Yes |
+| Verifier | plan.acceptance | Bash, Read, Glob, Grep | **No (read-only)** |
+| Fixer | verify verdict | Bash, Write, Edit, Read, Glob, Grep | Yes |
+
+---
+
+## Contract Enforcement
+
+Each phase has a **contract** — a schema that the output must satisfy before the supervisor advances.
+
+### Planning Contract
+
+```javascript
+{
+  required: ["framework", "description", "pages", "components", "files", "acceptance"],
+  validate(output) {
+    // - framework must be set
+    // - pages array must be non-empty, each with path + purpose
+    // - files array must be non-empty
+    // - acceptance criteria must be non-empty
+  }
+}
+```
+
+If the planner returns invalid JSON or missing fields → **reject, re-plan**.
+
+### Verify Contract
+
+```javascript
+{
+  required: ["pass", "build", "issues"],
+  validate(output) {
+    // - pass must be boolean
+    // - build.success must be boolean
+  }
+}
+```
+
+### Supervisor Reviews (no LLM)
+
+Between worker phases, the supervisor does deterministic checks:
+
+| Review | What it checks | Can reject? |
+|--------|---------------|-------------|
+| Plan Review | Contract valid + reasonableness (files < 50, pages < 20) | Yes → re-plan |
+| Scaffold Check | package.json exists | Yes → re-scaffold |
+| Code Review | Drift detection (extra/missing files vs plan) | Yes → re-code |
+
+---
+
+## Drift Detection
+
+After the **code** and **fix** phases, the supervisor compares actual files against the plan:
+
+```
+Plan says:           Actually created:
+  src/app/page.tsx     src/app/page.tsx       ✓ match
+  src/app/layout.tsx   src/app/layout.tsx     ✓ match
+  src/Header.tsx       src/Header.tsx         ✓ match
+                       src/utils/helpers.ts   ⚠ DRIFT: unplanned file
+                       src/types/global.d.ts  ⚠ DRIFT: unplanned file
+  src/Cart.tsx                                ⚠ MISSING: planned but not created
+```
+
+Config files (package.json, tsconfig, etc.) are excluded from drift detection.
+
+If drift exceeds threshold (>10 unplanned files), a warning is logged but the pipeline continues — the verify phase is the real gate.
+
+---
+
+## Audit Trail
+
+Every decision is logged to `audit.json`:
+
+```json
+[
+  { "timestamp": "...", "type": "transition", "from": "init", "to": "planning", "reason": "Starting planning phase" },
+  { "timestamp": "...", "type": "worker_start", "phase": "planning", "model": "claude-opus-4-6", "tools": [] },
+  { "timestamp": "...", "type": "worker_end", "phase": "planning", "exitCode": 0, "durationMs": 45000 },
+  { "timestamp": "...", "type": "contract_check", "phase": "planning", "passed": true, "errors": [] },
+  { "timestamp": "...", "type": "decision", "phase": "plan_review", "decision": "approve", "reason": "Plan is valid and reasonable" },
+  { "timestamp": "...", "type": "transition", "from": "plan_review", "to": "scaffolding", "reason": "Plan approved" },
+  { "timestamp": "...", "type": "drift_check", "phase": "coding", "extraFiles": ["src/utils/cn.ts"], "missingFiles": [], "warnings": [] },
+  { "timestamp": "...", "type": "decision", "phase": "verifying", "decision": "retry", "reason": "Verification failed, fix attempt 1/3" }
+]
+```
+
+You can reconstruct the full history of every pipeline run from this file.
+
+---
+
+## Communication Hierarchy
+
+```
+Human ──prompt──▶ Orchestrator ──delegates──▶ Supervisor
+                                                  │
+                                    ┌─────────────┼─────────────┐
+                                    ▼             ▼             ▼
+                              Worker A      Worker B      Worker C
+                              (plan)        (code)        (verify)
+
+Communication rules:
+  ✓ Human → Orchestrator       (prompt, flags)
+  ✓ Orchestrator → Supervisor  (create, start)
+  ✓ Supervisor → Worker        (prompt + scoped context)
+  ✓ Worker → Supervisor        (structured output)
+  ✓ Supervisor → Orchestrator  (decision: advance/retry/abort)
+  ✓ Orchestrator → Human       (final URL or error)
+
+  ✗ Worker → Worker            NEVER
+  ✗ Worker → Human             NEVER
+  ✗ Worker → Supervisor (ask)  NEVER (one-shot, no dialogue)
+  ✗ Human → Worker             NEVER (only through supervisor)
+```
+
+Workers are **fire-and-forget**:
+1. Supervisor sends prompt
+2. Worker runs to completion
+3. Worker returns output
+4. Supervisor evaluates output
+5. Supervisor decides next action
+
+No negotiation. No back-and-forth. No "worker asks for clarification."
+
+---
+
+## Run Artifacts
+
+Each run creates `runs/<timestamp>/` with:
+
+```
+runs/2026-03-29T14-30-00/
+├── input.json            # Original prompt + flags
+├── state.json            # Final supervisor state
+├── audit.json            # Full decision trail
+├── plan.json             # Approved plan
+├── plan-raw.log          # Planner's raw output
+├── scaffold.log          # Scaffolder's raw output
+├── code.log              # Coder's raw output
+├── verify-0.json         # First verify result
+├── fix-1.log             # First fix attempt (if needed)
+├── verify-1.json         # Second verify (if needed)
+├── deploy.json           # Deploy result + URL
+├── report.json           # Final summary
+├── error.json            # Only if pipeline failed
+└── project/              # The actual source code
+    ├── package.json
+    ├── src/
+    └── ...
+```
+
+---
+
+## Error Handling
+
+| Failure | Supervisor action |
+|---------|------------------|
+| Planner returns invalid JSON | Retry planning (max 3) |
+| Scaffold missing package.json | Retry scaffold (max 2) |
+| Code phase timeout | Abort |
+| Build fails | Enter fix loop (max 3 attempts) |
+| Fix fails to resolve | Deploy anyway (best effort) |
+| Deploy fails | Abort with error |
+| Any phase throws | Abort, save error.json |
+
+---
+
+## Cost Estimate
+
+| Phase | Model | ~Cost |
+|-------|-------|-------|
+| Plan (1x) | opus | $0.10 |
+| Scaffold (1x) | sonnet | $0.02 |
+| Code (1x) | sonnet | $0.12 |
+| Verify (1-4x) | sonnet | $0.02-0.08 |
+| Fix (0-3x) | sonnet | $0.00-0.15 |
+| Deploy | CLI | free |
+| **Total** | | **$0.25-0.50** |
+
+---
 
 ## Usage
 
 ```bash
-# Basic
 ./pipeline/run.sh "Landing page for food delivery with cart and order form"
-
-# With options
 ./pipeline/run.sh --framework next "E-commerce site for sneakers"
 ./pipeline/run.sh --deploy netlify "Portfolio site for a photographer"
 ```
-
-## Cost Estimate
-
-| Phase | Model | ~Tokens | ~Cost |
-|-------|-------|---------|-------|
-| Plan | opus | 5K in, 3K out | $0.10 |
-| Scaffold | sonnet | 3K in, 2K out | $0.02 |
-| Code | sonnet | 10K in, 20K out | $0.12 |
-| Verify | sonnet | 5K in, 2K out | $0.02 |
-| Fix (if needed) | sonnet | 8K in, 5K out | $0.05 |
-| **Total** | | | **~$0.30** |
-
-One site for ~30 cents.
