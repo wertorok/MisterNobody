@@ -1,0 +1,38 @@
+App Review Notes — MisterNobody VPN
+=====================================
+
+TESTING THE APP
+---------------
+The app requires a VLESS+Reality server configuration to test the VPN connection.
+A test configuration is available via the Import Config screen.
+
+Test vless:// URI for review (connect to a real test server or use the demo):
+  vless://550e8400-e29b-41d4-a716-446655440000@test.misternobody.vpn:443?security=reality&pbk=TEST_KEY&sid=a1b2c3&sni=www.apple.com&type=tcp&flow=xtls-rprx-vision#ReviewServer
+
+SUBSCRIPTION TESTING
+--------------------
+Sandbox test account credentials:
+  Email:    review@misternobody.vpn
+  Password: TestReview2025!
+
+All three plans (Monthly, Yearly, Lifetime) can be tested with the sandbox account.
+The 7-day trial is available on Monthly and Yearly plans.
+
+USE OF ENCRYPTION
+-----------------
+The app uses standard TLS 1.3 encryption provided by Apple's Network.framework
+and Security.framework (no custom encryption implementations).
+VLESS is a proxy protocol; the actual encryption is TLS 1.3.
+We use CryptoKit only for the x25519 key exchange portion of the Reality handshake,
+which is a standard Diffie-Hellman key agreement.
+
+VPN ENTITLEMENT
+---------------
+The app uses the Network Extension entitlement (packet-tunnel-provider)
+to create a VPN tunnel via NEPacketTunnelProvider.
+This is standard iOS VPN functionality, identical to apps like WireGuard, Shadowrocket, etc.
+
+PRIVACY
+-------
+The app does not track users. No analytics SDKs beyond RevenueCat (for subscription management).
+PrivacyInfo.xcprivacy is included in the bundle with accurate declarations.

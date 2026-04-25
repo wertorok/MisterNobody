@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>MisterNobody</string>
+    <key>CFBundleDisplayName</key>
+    <string>MisterNobody VPN</string>
+    <key>CFBundleIdentifier</key>
+    <string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+    <key>CFBundleShortVersionString</key>
+    <string>$(MARKETING_VERSION)</string>
+    <key>CFBundleVersion</key>
+    <string>$(CURRENT_PROJECT_VERSION)</string>
+    <key>CFBundleExecutable</key>
+    <string>$(EXECUTABLE_NAME)</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+
+    <!-- UI -->
+    <key>UILaunchScreen</key>
+    <dict>
+        <key>UIColorName</key>
+        <string>LaunchBackground</string>
+    </dict>
+    <key>UIApplicationSceneManifest</key>
+    <dict>
+        <key>UIApplicationSupportsMultipleScenes</key>
+        <false/>
+    </dict>
+    <key>UISupportedInterfaceOrientations</key>
+    <array>
+        <string>UIInterfaceOrientationPortrait</string>
+    </array>
+    <key>UIRequiresFullScreen</key>
+    <true/>
+
+    <!-- Background modes for VPN -->
+    <key>UIBackgroundModes</key>
+    <array>
+        <string>network-authentication</string>
+    </array>
+
+    <!-- Privacy usage descriptions -->
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>MisterNobody VPN needs local network access to establish VPN connections.</string>
+    <key>NSFaceIDUsageDescription</key>
+    <string>Use Face ID to unlock the app quickly.</string>
+
+    <!-- RevenueCat API Key -->
+    <key>RevenueCatAPIKey</key>
+    <string>appl_REPLACE_WITH_YOUR_REVENUECAT_KEY</string>
+
+    <!-- App Transport Security -->
+    <key>NSAppTransportSecurity</key>
+    <dict>
+        <key>NSAllowsArbitraryLoads</key>
+        <false/>
+    </dict>
+</dict>
+</plist>

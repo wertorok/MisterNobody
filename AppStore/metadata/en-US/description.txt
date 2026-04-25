@@ -1,0 +1,45 @@
+MisterNobody VPN — Private, Fast, Undetectable
+
+Protect your privacy and bypass censorship with the most advanced VPN protocol available: VLESS + Reality. Your traffic looks like normal HTTPS — invisible to DPI and network monitoring.
+
+─── WHY MISTERNOBODY ───
+
+• VLESS Reality Protocol — the cutting-edge protocol that mirrors real browser traffic, defeating even the deepest packet inspection
+• No-Log Policy — we never store your activity, DNS queries, or connection timestamps
+• Kill Switch — automatically blocks all internet if the VPN connection drops
+• Unlimited Bandwidth — no speed caps, no data limits, ever
+• Global Servers — high-speed nodes across Europe, Americas, and Asia
+
+─── FEATURES ───
+
+★ One-tap connect — big, satisfying connect button
+★ Smart server selection — auto-picks the fastest server for you
+★ Import any config — paste vless:// URI or Xray JSON from your own server
+★ Real-time stats — see download speed, upload, and session duration live
+★ Custom DNS — use 1.1.1.1, 8.8.8.8, or your own resolver
+★ Diagnostics — built-in ping test and connection log
+★ Split tunneling — choose which apps bypass the VPN (Premium)
+★ Auto-connect on untrusted Wi-Fi (Premium)
+★ Protect up to 5 devices with one subscription (Premium)
+
+─── PREMIUM PLANS ───
+
+Monthly   — $4.99/month (7-day free trial)
+Yearly    — $29.99/year · Save 50% (7-day free trial)
+Lifetime  — $79.99 one-time
+
+Subscriptions auto-renew. Cancel anytime in Settings → Apple ID → Subscriptions.
+
+─── PRIVACY ───
+
+We operate under a strict no-log policy. We do not collect, store, or share:
+• Your browsing activity
+• DNS queries
+• Connection timestamps
+• Your real IP address
+
+─── TECHNICAL ───
+
+Built on the VLESS protocol with Reality security, the same technology powering the most censorship-resistant networks worldwide. Supports XTLS Vision flow for minimal latency overhead.
+
+Questions or issues? Contact support@misternobody.vpn
