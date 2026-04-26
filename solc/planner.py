@@ -81,10 +81,10 @@ class QueryPlanner:
             ]
 
         expanded = expand(self.ranker.graph, seeds, self.expand_per_seed)
-        matched_set = {n for n, *_ in matched}
+        match_meta = {n: (ns, p) for n, ns, p, _ in matched}
 
         return sorted(
             [(n, scores.get(n, 0.0)) for n in expanded],
-            key=lambda x: (x[0] in matched_set, x[1]),
+            key=lambda x: (match_meta.get(x[0], (0, 0.0)), x[1]),
             reverse=True,
         )[:self.top_k]

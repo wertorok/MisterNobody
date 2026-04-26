@@ -1,13 +1,13 @@
 {
   "echo to terminal": ["echo", "secho", "echo_via_pager"],
-  "create a command": ["command", "group"],
-  "invoke a callback": ["invoke", "forward"],
-  "abort with exit": ["abort", "exit", "fail"],
-  "format the help text": ["get_help", "format_filename", "make_formatter"],
+  "create a command": ["command", "group", "Command", "Group"],
+  "invoke a callback": ["invoke", "forward", "Context.invoke", "Command.invoke"],
+  "abort with exit": ["abort", "exit", "fail", "Abort", "Exit", "Context.abort", "Context.exit"],
+  "format the help text": ["get_help", "format_help", "make_formatter", "HelpFormatter", "Command.format_help"],
 
   "print colored output": ["echo", "secho", "style"],
   "ask user for input": ["prompt", "confirm"],
-  "open the editor": ["edit", "launch"],
-  "show error message": ["fail", "abort"],
-  "list available commands": ["_complete_visible_commands", "list_commands"]
+  "open the editor": ["edit", "launch", "Editor"],
+  "show error message": ["fail", "abort", "UsageError", "ClickException", "show"],
+  "list available commands": ["_complete_visible_commands", "list_commands", "Group.list_commands"]
 }

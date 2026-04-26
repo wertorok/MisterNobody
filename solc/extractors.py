@@ -32,24 +32,44 @@ def extract_python_calls(code: str):
     edges = []
     defined = set()
     fn_stack = []
+    class_stack = []
 
     def walk(node):
-        opened = False
+        opened_fn = False
+        opened_class = False
+
+        if node.type == "class_definition":
+            cn = node.child_by_field_name("name")
+            if cn is not None:
+                class_stack.append(cn.text.decode())
+                defined.add(".".join(class_stack))
+                opened_class = True
+
         if node.type == "function_definition":
-            name_node = node.child_by_field_name("name")
-            if name_node is not None:
-                name = name_node.text.decode()
-                defined.add(name)
-                fn_stack.append(name)
-                opened = True
+            nn = node.child_by_field_name("name")
+            if nn is not None:
+                method = nn.text.decode()
+                if class_stack:
+                    qualified = ".".join(class_stack + [method])
+                    edges.append((".".join(class_stack), qualified))
+                else:
+                    qualified = method
+                defined.add(qualified)
+                fn_stack.append(qualified)
+                opened_fn = True
+
         if node.type == "call" and fn_stack:
             callee = _callee_name(node)
             if callee:
                 edges.append((fn_stack[-1], callee))
+
         for child in node.children:
             walk(child)
-        if opened:
+
+        if opened_fn:
             fn_stack.pop()
+        if opened_class:
+            class_stack.pop()
 
     walk(tree.root_node)
     return edges, defined

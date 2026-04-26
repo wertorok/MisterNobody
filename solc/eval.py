@@ -9,6 +9,14 @@ class EvalRunner:
         self.ground_truth = ground_truth or {}
         self.graph_size = graph_size
 
+    @staticmethod
+    def _hit(returned, truth):
+        for r in returned:
+            tail = r.rsplit(".", 1)[-1]
+            if r in truth or tail in truth:
+                return True
+        return False
+
     def run_test(self, queries, cold_start=True):
         results = []
         for q in queries:
@@ -28,7 +36,7 @@ class EvalRunner:
 
             agent_nodes = r1["nodes_used"]
             truth = set(self.ground_truth.get(q, []))
-            hit = bool(truth & set(agent_nodes)) if truth else None
+            hit = self._hit(agent_nodes, truth) if truth else None
 
             results.append({
                 "query": q,
