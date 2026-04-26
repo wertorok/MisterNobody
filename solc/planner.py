@@ -1,15 +1,41 @@
 import re
 
 _TOKEN_RE = re.compile(r"[a-zA-Z_]+")
+_SPLIT_RE = re.compile(r"[_\W]+")
+_CAMEL_RE = re.compile(r"[A-Z]?[a-z]+|[A-Z]+(?=[A-Z]|$)")
+_SUFFIXES = ("ing", "ed", "er", "s")
+_STOPWORDS = {
+    "a", "an", "the", "of", "in", "is", "are", "to", "for", "from",
+    "as", "by", "on", "at", "with", "and", "or", "not", "do", "does",
+    "did", "be", "been", "have", "has", "had", "it", "this", "that",
+    "these", "those", "what", "which", "where", "when", "how", "why",
+    "who", "i", "me", "my", "you", "your", "we", "our", "they", "their",
+}
 
 
 def tokenize(query):
-    return [t.lower() for t in _TOKEN_RE.findall(query)]
+    return [
+        t.lower() for t in _TOKEN_RE.findall(query)
+        if t.lower() not in _STOPWORDS
+    ]
+
+
+def stem(token):
+    for suf in _SUFFIXES:
+        if token.endswith(suf) and len(token) > len(suf) + 2:
+            return token[: -len(suf)]
+    return token
+
+
+def split_identifier(name):
+    snake = _SPLIT_RE.split(name)
+    camel = _CAMEL_RE.findall(name)
+    return {p.lower() for p in (*snake, *camel) if p}
 
 
 def name_score(node, tokens):
-    node_l = node.lower()
-    return sum(1 for t in tokens if t and t in node_l)
+    parts = {stem(p) for p in split_identifier(node)}
+    return sum(1 for t in tokens if stem(t) in parts)
 
 
 def expand(graph, seeds, per_seed=3):
@@ -23,11 +49,8 @@ def expand(graph, seeds, per_seed=3):
 
 
 class QueryPlanner:
-    def __init__(self, ranker, rank_weight=0.7, name_weight=0.3,
-                 num_seeds=5, expand_per_seed=3, top_k=10):
+    def __init__(self, ranker, num_seeds=5, expand_per_seed=3, top_k=10):
         self.ranker = ranker
-        self.rank_weight = rank_weight
-        self.name_weight = name_weight
         self.num_seeds = num_seeds
         self.expand_per_seed = expand_per_seed
         self.top_k = top_k
@@ -38,24 +61,30 @@ class QueryPlanner:
             return []
 
         tokens = tokenize(query)
-        max_r = max(scores.values()) or 1.0
-        denom_n = max(1, len(tokens))
-
-        scored = []
+        matched = []
         for node, r in scores.items():
-            norm_r = r / max_r
-            norm_n = name_score(node, tokens) / denom_n
-            final = self.rank_weight * norm_r + self.name_weight * norm_n
-            scored.append((node, final))
+            parts = split_identifier(node)
+            ns = name_score(node, tokens)
+            if ns > 0:
+                # tie-break: prefer matches in shorter / more focused names
+                precision = ns / max(1, len(parts))
+                matched.append((node, ns, precision, r))
 
-        scored.sort(key=lambda x: x[1], reverse=True)
-        seeds = [n for n, _ in scored[:self.num_seeds]]
+        if matched:
+            matched.sort(key=lambda x: (x[1], x[2], x[3]), reverse=True)
+            seeds = [n for n, *_ in matched[:self.num_seeds]]
+        else:
+            seeds = [
+                n for n, _ in
+                sorted(scores.items(), key=lambda x: x[1], reverse=True)
+                [:self.num_seeds]
+            ]
 
         expanded = expand(self.ranker.graph, seeds, self.expand_per_seed)
+        matched_set = {n for n, *_ in matched}
 
-        final_by_node = dict(scored)
         return sorted(
-            [(n, final_by_node.get(n, 0.0)) for n in expanded],
-            key=lambda x: x[1],
+            [(n, scores.get(n, 0.0)) for n in expanded],
+            key=lambda x: (x[0] in matched_set, x[1]),
             reverse=True,
         )[:self.top_k]
