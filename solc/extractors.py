@@ -30,6 +30,7 @@ def _callee_name(call_node):
 def extract_python_calls(code: str):
     tree = _PY_PARSER.parse(code.encode("utf-8"))
     edges = []
+    defined = set()
     fn_stack = []
 
     def walk(node):
@@ -37,7 +38,9 @@ def extract_python_calls(code: str):
         if node.type == "function_definition":
             name_node = node.child_by_field_name("name")
             if name_node is not None:
-                fn_stack.append(name_node.text.decode())
+                name = name_node.text.decode()
+                defined.add(name)
+                fn_stack.append(name)
                 opened = True
         if node.type == "call" and fn_stack:
             callee = _callee_name(node)
@@ -49,7 +52,7 @@ def extract_python_calls(code: str):
             fn_stack.pop()
 
     walk(tree.root_node)
-    return edges
+    return edges, defined
 
 
 def iter_python_files(repo_path):
@@ -63,10 +66,13 @@ def iter_python_files(repo_path):
 
 def extract_repo_calls(repo_path):
     edges = []
+    defined = set()
     for path in iter_python_files(repo_path):
         try:
             code = path.read_text(encoding="utf-8")
         except (UnicodeDecodeError, OSError):
             continue
-        edges.extend(extract_python_calls(code))
-    return edges
+        e, d = extract_python_calls(code)
+        edges.extend(e)
+        defined.update(d)
+    return edges, defined

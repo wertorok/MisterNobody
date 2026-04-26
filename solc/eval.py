@@ -6,9 +6,15 @@ class EvalRunner:
         self.agent = agent
         self.baseline = baseline_agent
 
-    def run_test(self, queries):
+    def run_test(self, queries, cold_start=True):
         results = []
         for q in queries:
+            if cold_start:
+                if hasattr(self.agent, "reset"):
+                    self.agent.reset()
+                if hasattr(self.baseline, "reset"):
+                    self.baseline.reset()
+
             start = time.time()
             r1 = self.agent.run(q)
             t1 = time.time() - start

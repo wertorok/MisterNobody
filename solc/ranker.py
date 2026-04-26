@@ -13,9 +13,12 @@ class CodeRanker:
         self.churn = defaultdict(int)
         self.scores = {}
 
-    def build_call_graph(self):
-        edges = extract_repo_calls(self.repo_path)
+    def build_call_graph(self, prune_external=True):
+        edges, defined = extract_repo_calls(self.repo_path)
+        self.defined = defined
         for a, b in edges:
+            if prune_external and (a not in defined or b not in defined):
+                continue
             self.graph.add_edge(a, b)
 
     def compute_churn(self):

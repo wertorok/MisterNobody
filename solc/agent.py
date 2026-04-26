@@ -5,6 +5,9 @@ class LazyAgent:
         self.memory = set()
         self.max_nodes = max_nodes
 
+    def reset(self):
+        self.memory.clear()
+
     def run(self, query):
         plan = self.planner.plan(query)
         context = []
