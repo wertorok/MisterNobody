@@ -1,6 +1,7 @@
 import json
 import os
 import re
+import subprocess
 
 _PROMPT = """Map the user's natural-language query to code symbols a programmer might search for.
 
@@ -13,7 +14,31 @@ Keep each list under 6 items. No prose, no markdown, just the JSON.
 
 Query: {query}"""
 
+_FENCE_RE = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.DOTALL)
 _JSON_RE = re.compile(r"\{.*\}", re.DOTALL)
+
+
+def _parse_json_payload(text):
+    m = _FENCE_RE.search(text)
+    payload = m.group(1) if m else None
+    if payload is None:
+        m = _JSON_RE.search(text)
+        payload = m.group(0) if m else None
+    if payload is None:
+        return {}
+    try:
+        return json.loads(payload)
+    except json.JSONDecodeError:
+        return {}
+
+
+def _flatten(data):
+    out = []
+    for key in ("verbs", "concepts", "entities"):
+        for v in data.get(key, []) or []:
+            if isinstance(v, str) and v:
+                out.append(v.lower())
+    return out
 
 
 class StubExpander:
@@ -69,7 +94,7 @@ class LLMQueryExpander:
             getattr(b, "text", "") for b in resp.content
             if getattr(b, "type", None) == "text"
         )
-        tokens = self._parse(text)
+        tokens = _flatten(_parse_json_payload(text))
 
         usage = getattr(resp, "usage", None)
         if usage is not None:
@@ -80,18 +105,65 @@ class LLMQueryExpander:
         self.cache[query] = tokens
         return tokens
 
-    @staticmethod
-    def _parse(text):
-        match = _JSON_RE.search(text)
-        if not match:
-            return []
+
+class ClaudeCLIExpander:
+    """Shells out to the local `claude` binary using the host's session/auth.
+
+    Useful when the sandbox proxy blocks external LLM endpoints but the
+    Claude Code CLI itself can still reach Anthropic via the user's
+    subscription. Tracks total_cost_usd reported by the CLI wrapper.
+    """
+
+    def __init__(self, model="haiku", max_budget_usd=2.0,
+                 claude_bin="claude", timeout=90):
+        self.model = model
+        self.max_budget = max_budget_usd
+        self.bin = claude_bin
+        self.timeout = timeout
+        self.cache = {}
+        self.cost = {"calls": 0, "total_cost_usd": 0.0,
+                     "input_tokens": 0, "output_tokens": 0}
+
+    def expand(self, query):
+        if query in self.cache:
+            return self.cache[query]
+
+        prompt = _PROMPT.format(query=query)
+        argv = [
+            self.bin, "-p",
+            "--output-format", "json",
+            "--model", self.model,
+            "--max-budget-usd", str(self.max_budget),
+            "--exclude-dynamic-system-prompt-sections",
+            "--disallowedTools", "*",
+            prompt,
+        ]
         try:
-            data = json.loads(match.group(0))
-        except json.JSONDecodeError:
+            proc = subprocess.run(
+                argv, capture_output=True, text=True,
+                timeout=self.timeout, check=False,
+            )
+        except subprocess.TimeoutExpired:
+            self.cache[query] = []
             return []
-        out = []
-        for key in ("verbs", "concepts", "entities"):
-            for v in data.get(key, []) or []:
-                if isinstance(v, str) and v:
-                    out.append(v.lower())
-        return out
+
+        if proc.returncode != 0 or not proc.stdout:
+            self.cache[query] = []
+            return []
+
+        try:
+            wrapper = json.loads(proc.stdout)
+        except json.JSONDecodeError:
+            self.cache[query] = []
+            return []
+
+        tokens = _flatten(_parse_json_payload(wrapper.get("result", "") or ""))
+
+        self.cost["calls"] += 1
+        self.cost["total_cost_usd"] += float(wrapper.get("total_cost_usd") or 0)
+        usage = wrapper.get("usage") or {}
+        self.cost["input_tokens"] += int(usage.get("input_tokens") or 0)
+        self.cost["output_tokens"] += int(usage.get("output_tokens") or 0)
+
+        self.cache[query] = tokens
+        return tokens

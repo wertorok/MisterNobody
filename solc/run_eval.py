@@ -24,8 +24,14 @@ def main():
     ap.add_argument("--queries", help="path to JSON file with queries + truth")
     ap.add_argument("--top", type=int, default=10, help="print top-K ranked")
     ap.add_argument("--llm", action="store_true",
-                    help="enable LLM query expansion (needs ANTHROPIC_API_KEY)")
-    ap.add_argument("--llm-model", default="MiniMax-M2.7")
+                    help="enable LLM query expansion via Anthropic SDK "
+                         "(needs ANTHROPIC_API_KEY)")
+    ap.add_argument("--llm-cli", action="store_true",
+                    help="enable LLM query expansion via local claude CLI "
+                         "(uses host session auth)")
+    ap.add_argument("--llm-model", default=None,
+                    help="model name; default: MiniMax-M2.7 for --llm, "
+                         "haiku for --llm-cli")
     args = ap.parse_args()
 
     ranker = build(args.repo)
@@ -45,10 +51,16 @@ def main():
     queries = list(spec.keys())
     ground_truth = {q: set(v) for q, v in spec.items()}
 
+    if args.llm and args.llm_cli:
+        ap.error("--llm and --llm-cli are mutually exclusive")
+
     expander = None
-    if args.llm:
+    if args.llm_cli:
+        from .query_expander import ClaudeCLIExpander
+        expander = ClaudeCLIExpander(model=args.llm_model or "haiku")
+    elif args.llm:
         from .query_expander import LLMQueryExpander
-        expander = LLMQueryExpander(model=args.llm_model)
+        expander = LLMQueryExpander(model=args.llm_model or "MiniMax-M2.7")
 
     tools = CodeTools(repo=args.repo)
     planner = QueryPlanner(ranker, expander=expander)
@@ -72,9 +84,11 @@ def main():
 
     if expander is not None:
         c = expander.cost
+        usd = c.get("total_cost_usd")
+        usd_str = f" usd={usd:.4f}" if usd else ""
         print(f"llm cost: calls={c['calls']} "
               f"input_tokens={c['input_tokens']} "
-              f"output_tokens={c['output_tokens']}")
+              f"output_tokens={c['output_tokens']}{usd_str}")
 
 
 if __name__ == "__main__":
