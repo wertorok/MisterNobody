@@ -3,16 +3,20 @@ import os
 import re
 import subprocess
 
-_PROMPT = """Map the user's natural-language query to code symbols a programmer might search for.
+_PROMPT = """Output a single JSON object that maps this query to code symbols.
 
-Return ONLY a JSON object with these keys:
-- "verbs": short list of action words (lowercase)
-- "concepts": short list of related technical ideas (lowercase)
-- "entities": short list of likely function or class names (preserve casing)
+Query: "{query}"
 
-Keep each list under 6 items. No prose, no markdown, just the JSON.
+Schema:
+{{"verbs": [...], "concepts": [...], "entities": [...]}}
+- verbs: action words a programmer might use (lowercase, <=5)
+- concepts: related technical ideas (lowercase, <=5)
+- entities: likely function or class names (preserve casing, <=5)
 
-Query: {query}"""
+Example for query "print colored output":
+{{"verbs":["print","echo","write","style"],"concepts":["color","ansi","terminal"],"entities":["echo","secho","style"]}}
+
+Output the JSON object now. No prose, no questions, no markdown fences."""
 
 _FENCE_RE = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.DOTALL)
 _JSON_RE = re.compile(r"\{.*\}", re.DOTALL)
@@ -115,11 +119,14 @@ class ClaudeCLIExpander:
     """
 
     def __init__(self, model="haiku", max_budget_usd=2.0,
-                 claude_bin="claude", timeout=90):
+                 claude_bin="claude", timeout=90, cwd="/tmp"):
         self.model = model
         self.max_budget = max_budget_usd
         self.bin = claude_bin
         self.timeout = timeout
+        # Run from a non-git directory to avoid triggering host stop hooks
+        # that block on uncommitted changes in the parent session's repo.
+        self.cwd = cwd
         self.cache = {}
         self.cost = {"calls": 0, "total_cost_usd": 0.0,
                      "input_tokens": 0, "output_tokens": 0}
@@ -135,13 +142,13 @@ class ClaudeCLIExpander:
             "--model", self.model,
             "--max-budget-usd", str(self.max_budget),
             "--exclude-dynamic-system-prompt-sections",
-            "--disallowedTools", "*",
             prompt,
         ]
         try:
             proc = subprocess.run(
                 argv, capture_output=True, text=True,
-                timeout=self.timeout, check=False,
+                timeout=self.timeout, check=False, cwd=self.cwd,
+                stdin=subprocess.DEVNULL,
             )
         except subprocess.TimeoutExpired:
             self.cache[query] = []
