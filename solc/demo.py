@@ -35,18 +35,31 @@ def main():
     baseline = BaselineAgent(ranker, tools)
 
     queries = [
-        "how does the ranker work",
-        "where is the agent loop",
-        "what does eval measure",
+        "compute the rank",
+        "run the agent",
+        "extract calls from python",
     ]
+    ground_truth = {
+        "compute the rank": {"compute_rank", "top_k"},
+        "run the agent": {"run", "run_test"},
+        "extract calls from python": {
+            "extract_python_calls", "extract_repo_calls", "_callee_name",
+        },
+    }
 
-    runner = EvalRunner(agent, baseline)
+    runner = EvalRunner(
+        agent, baseline,
+        ground_truth=ground_truth,
+        graph_size=ranker.graph.number_of_nodes(),
+    )
     results = runner.run_test(queries)
     metrics = runner.metrics(results)
 
     print("\neval:")
     for r in results:
-        print(r)
+        print(f"  q={r['query']!r}")
+        print(f"    agent_nodes={r['agent_nodes']} hit={r['hit']} "
+              f"used={r['agent_node_list']}")
     print("metrics:", metrics)
 
 
