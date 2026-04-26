@@ -23,6 +23,9 @@ def main():
     ap.add_argument("repo")
     ap.add_argument("--queries", help="path to JSON file with queries + truth")
     ap.add_argument("--top", type=int, default=10, help="print top-K ranked")
+    ap.add_argument("--llm", action="store_true",
+                    help="enable LLM query expansion (needs ANTHROPIC_API_KEY)")
+    ap.add_argument("--llm-model", default="MiniMax-M2.7")
     args = ap.parse_args()
 
     ranker = build(args.repo)
@@ -42,8 +45,13 @@ def main():
     queries = list(spec.keys())
     ground_truth = {q: set(v) for q, v in spec.items()}
 
+    expander = None
+    if args.llm:
+        from .query_expander import LLMQueryExpander
+        expander = LLMQueryExpander(model=args.llm_model)
+
     tools = CodeTools(repo=args.repo)
-    planner = QueryPlanner(ranker)
+    planner = QueryPlanner(ranker, expander=expander)
     agent = LazyAgent(planner, tools)
     baseline = BaselineAgent(ranker, tools)
 
@@ -61,6 +69,12 @@ def main():
         print(f"    agent_nodes={r['agent_nodes']} hit={r['hit']} "
               f"used={r['agent_node_list']}")
     print("metrics:", metrics)
+
+    if expander is not None:
+        c = expander.cost
+        print(f"llm cost: calls={c['calls']} "
+              f"input_tokens={c['input_tokens']} "
+              f"output_tokens={c['output_tokens']}")
 
 
 if __name__ == "__main__":

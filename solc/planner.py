@@ -49,18 +49,34 @@ def expand(graph, seeds, per_seed=3):
 
 
 class QueryPlanner:
-    def __init__(self, ranker, num_seeds=5, expand_per_seed=3, top_k=10):
+    def __init__(self, ranker, num_seeds=5, expand_per_seed=3, top_k=10,
+                 expander=None):
         self.ranker = ranker
         self.num_seeds = num_seeds
         self.expand_per_seed = expand_per_seed
         self.top_k = top_k
+        self.expander = expander
+
+    def _tokens(self, query):
+        tokens = tokenize(query)
+        if self.expander is not None:
+            extra = self.expander.expand(query) or []
+            extra_tokens = []
+            for raw in extra:
+                extra_tokens.extend(tokenize(raw))
+            seen = set(tokens)
+            for t in extra_tokens:
+                if t not in seen:
+                    tokens.append(t)
+                    seen.add(t)
+        return tokens
 
     def plan(self, query):
         scores = self.ranker.scores
         if not scores:
             return []
 
-        tokens = tokenize(query)
+        tokens = self._tokens(query)
         matched = []
         for node, r in scores.items():
             parts = split_identifier(node)
@@ -71,7 +87,7 @@ class QueryPlanner:
                 matched.append((node, ns, precision, r))
 
         if matched:
-            matched.sort(key=lambda x: (x[1], x[2], x[3]), reverse=True)
+            matched.sort(key=lambda x: (x[2], x[1], x[3]), reverse=True)
             seeds = [n for n, *_ in matched[:self.num_seeds]]
         else:
             seeds = [
@@ -81,10 +97,10 @@ class QueryPlanner:
             ]
 
         expanded = expand(self.ranker.graph, seeds, self.expand_per_seed)
-        match_meta = {n: (ns, p) for n, ns, p, _ in matched}
+        match_meta = {n: (p, ns) for n, ns, p, _ in matched}
 
         return sorted(
             [(n, scores.get(n, 0.0)) for n in expanded],
-            key=lambda x: (match_meta.get(x[0], (0, 0.0)), x[1]),
+            key=lambda x: (match_meta.get(x[0], (0.0, 0)), x[1]),
             reverse=True,
         )[:self.top_k]
