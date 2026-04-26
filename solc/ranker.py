@@ -3,6 +3,8 @@ from collections import defaultdict
 
 import networkx as nx
 
+from .extractors import extract_repo_calls
+
 
 class CodeRanker:
     def __init__(self, repo_path):
@@ -12,7 +14,7 @@ class CodeRanker:
         self.scores = {}
 
     def build_call_graph(self):
-        edges = self._mock_extract_calls()
+        edges = extract_repo_calls(self.repo_path)
         for a, b in edges:
             self.graph.add_edge(a, b)
 
@@ -44,10 +46,3 @@ class CodeRanker:
             key=lambda x: x[1],
             reverse=True,
         )[:k]
-
-    def _mock_extract_calls(self):
-        return [
-            ("authController", "authService"),
-            ("authService", "jwt"),
-            ("paymentService", "stripe"),
-        ]

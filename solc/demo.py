@@ -23,21 +23,28 @@ def main():
     ranker.compute_churn()
     ranker.compute_rank()
 
+    print(f"graph: {ranker.graph.number_of_nodes()} nodes, "
+          f"{ranker.graph.number_of_edges()} edges")
+    print("top 10 by score:")
+    for name, score in ranker.top_k(k=10):
+        print(f"  {score:.4f}  {name}")
+
     tools = CodeTools(repo=".")
     planner = QueryPlanner(ranker)
     agent = LazyAgent(planner, tools)
     baseline = BaselineAgent(ranker, tools)
 
     queries = [
-        "how does auth work",
-        "where is payment handled",
-        "what is the entry point",
+        "how does the ranker work",
+        "where is the agent loop",
+        "what does eval measure",
     ]
 
     runner = EvalRunner(agent, baseline)
     results = runner.run_test(queries)
     metrics = runner.metrics(results)
 
+    print("\neval:")
     for r in results:
         print(r)
     print("metrics:", metrics)
