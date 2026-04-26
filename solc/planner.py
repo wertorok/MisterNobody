@@ -50,41 +50,65 @@ def expand(graph, seeds, per_seed=3):
 
 class QueryPlanner:
     def __init__(self, ranker, num_seeds=5, expand_per_seed=3, top_k=10,
-                 expander=None):
+                 expander=None, selective_llm=False,
+                 confidence_top_score=2, confidence_min_matches=3):
         self.ranker = ranker
         self.num_seeds = num_seeds
         self.expand_per_seed = expand_per_seed
         self.top_k = top_k
         self.expander = expander
+        self.selective_llm = selective_llm
+        self.confidence_top_score = confidence_top_score
+        self.confidence_min_matches = confidence_min_matches
 
-    def _tokens(self, query):
-        tokens = tokenize(query)
-        if self.expander is not None:
-            extra = self.expander.expand(query) or []
-            extra_tokens = []
-            for raw in extra:
-                extra_tokens.extend(tokenize(raw))
-            seen = set(tokens)
-            for t in extra_tokens:
-                if t not in seen:
-                    tokens.append(t)
-                    seen.add(t)
-        return tokens
+    def _match(self, tokens):
+        scores = self.ranker.scores
+        matched = []
+        for node, r in scores.items():
+            parts = split_identifier(node)
+            ns = name_score(node, tokens)
+            if ns > 0:
+                precision = ns / max(1, len(parts))
+                matched.append((node, ns, precision, r))
+        return matched
+
+    def _is_confident(self, matched):
+        if not matched:
+            return False
+        top_scores = sorted([m[1] for m in matched], reverse=True)[:5]
+        return (
+            top_scores[0] >= self.confidence_top_score
+            and sum(1 for s in top_scores if s > 0) >= self.confidence_min_matches
+        )
+
+    def _expand_tokens(self, tokens, query):
+        extra = self.expander.expand(query) or []
+        extra_tokens = []
+        for raw in extra:
+            extra_tokens.extend(tokenize(raw))
+        out = list(tokens)
+        seen = set(tokens)
+        for t in extra_tokens:
+            if t not in seen:
+                out.append(t)
+                seen.add(t)
+        return out
 
     def plan(self, query):
         scores = self.ranker.scores
         if not scores:
             return []
 
-        tokens = self._tokens(query)
-        matched = []
-        for node, r in scores.items():
-            parts = split_identifier(node)
-            ns = name_score(node, tokens)
-            if ns > 0:
-                # tie-break: prefer matches in shorter / more focused names
-                precision = ns / max(1, len(parts))
-                matched.append((node, ns, precision, r))
+        tokens = tokenize(query)
+        matched = self._match(tokens)
+
+        if self.expander is not None:
+            should_expand = (
+                not self.selective_llm or not self._is_confident(matched)
+            )
+            if should_expand:
+                tokens = self._expand_tokens(tokens, query)
+                matched = self._match(tokens)
 
         if matched:
             matched.sort(key=lambda x: (x[2], x[1], x[3]), reverse=True)

@@ -3,11 +3,12 @@ import time
 
 class EvalRunner:
     def __init__(self, agent, baseline_agent, ground_truth=None,
-                 graph_size=None):
+                 graph_size=None, query_types=None):
         self.agent = agent
         self.baseline = baseline_agent
         self.ground_truth = ground_truth or {}
         self.graph_size = graph_size
+        self.query_types = query_types or {}
 
     @staticmethod
     def _hit(returned, truth):
@@ -40,6 +41,7 @@ class EvalRunner:
 
             results.append({
                 "query": q,
+                "type": self.query_types.get(q),
                 "agent_nodes": len(agent_nodes),
                 "baseline_nodes": len(r2["nodes_used"]),
                 "agent_time": t1,
@@ -73,6 +75,16 @@ class EvalRunner:
             if scored else None
         )
 
+        by_type = {}
+        for r in scored:
+            t = r.get("type")
+            if t is None:
+                continue
+            by_type.setdefault(t, []).append(r["hit"])
+        by_type_rate = {
+            t: sum(v) / len(v) for t, v in by_type.items() if v
+        }
+
         union = set()
         for r in results:
             union.update(r["agent_node_list"])
@@ -85,5 +97,6 @@ class EvalRunner:
             "avg_node_reduction": avg_reduction,
             "retrieval_avoidance": avoidance,
             "hit_rate": hit_rate,
+            "by_type": by_type_rate,
             "diversity": diversity,
         }

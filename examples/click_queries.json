@@ -1,13 +1,55 @@
 {
-  "echo to terminal": ["echo", "secho", "echo_via_pager"],
-  "create a command": ["command", "group", "Command", "Group"],
-  "invoke a callback": ["invoke", "forward", "Context.invoke", "Command.invoke"],
-  "abort with exit": ["abort", "exit", "fail", "Abort", "Exit", "Context.abort", "Context.exit"],
-  "format the help text": ["get_help", "format_help", "make_formatter", "HelpFormatter", "Command.format_help"],
+  "queries": [
+    {
+      "q": "echo to terminal",
+      "type": "direct",
+      "expected": ["echo", "secho", "echo_via_pager"]
+    },
+    {
+      "q": "create a command",
+      "type": "direct",
+      "expected": ["command", "group", "Command", "Group"]
+    },
+    {
+      "q": "invoke a callback",
+      "type": "direct",
+      "expected": ["invoke", "forward", "Context.invoke", "Command.invoke"]
+    },
+    {
+      "q": "abort with exit",
+      "type": "direct",
+      "expected": ["abort", "exit", "fail", "Abort", "Exit", "Context.abort", "Context.exit"]
+    },
+    {
+      "q": "format the help text",
+      "type": "direct",
+      "expected": ["get_help", "format_help", "make_formatter", "HelpFormatter", "Command.format_help"]
+    },
 
-  "print colored output": ["echo", "secho", "style"],
-  "ask user for input": ["prompt", "confirm"],
-  "open the editor": ["edit", "launch", "Editor"],
-  "show error message": ["fail", "abort", "UsageError", "ClickException", "show"],
-  "list available commands": ["_complete_visible_commands", "list_commands", "Group.list_commands"]
+    {
+      "q": "print colored output",
+      "type": "indirect",
+      "expected": ["echo", "secho", "style"]
+    },
+    {
+      "q": "ask user for input",
+      "type": "indirect",
+      "expected": ["prompt", "confirm"]
+    },
+    {
+      "q": "open the editor",
+      "type": "indirect",
+      "expected": ["edit", "launch", "Editor"]
+    },
+    {
+      "q": "show error message",
+      "type": "indirect",
+      "expected": ["fail", "abort", "UsageError", "ClickException", "show"]
+    },
+    {
+      "q": "list available commands",
+      "type": "indirect",
+      "expected": ["_complete_visible_commands", "list_commands", "Group.list_commands"]
+    }
+  ]
 }

@@ -32,6 +32,8 @@ def main():
     ap.add_argument("--llm-model", default=None,
                     help="model name; default: MiniMax-M2.7 for --llm, "
                          "haiku for --llm-cli")
+    ap.add_argument("--selective", action="store_true",
+                    help="only call LLM when deterministic match is weak")
     args = ap.parse_args()
 
     ranker = build(args.repo)
@@ -48,8 +50,16 @@ def main():
 
     with open(args.queries) as f:
         spec = json.load(f)
-    queries = list(spec.keys())
-    ground_truth = {q: set(v) for q, v in spec.items()}
+
+    if isinstance(spec, dict) and "queries" in spec:
+        items = spec["queries"]
+        queries = [it["q"] for it in items]
+        ground_truth = {it["q"]: set(it["expected"]) for it in items}
+        query_types = {it["q"]: it.get("type") for it in items}
+    else:
+        queries = list(spec.keys())
+        ground_truth = {q: set(v) for q, v in spec.items()}
+        query_types = {}
 
     if args.llm and args.llm_cli:
         ap.error("--llm and --llm-cli are mutually exclusive")
@@ -63,7 +73,8 @@ def main():
         expander = LLMQueryExpander(model=args.llm_model or "MiniMax-M2.7")
 
     tools = CodeTools(repo=args.repo)
-    planner = QueryPlanner(ranker, expander=expander)
+    planner = QueryPlanner(ranker, expander=expander,
+                           selective_llm=args.selective)
     agent = LazyAgent(planner, tools)
     baseline = BaselineAgent(ranker, tools)
 
@@ -71,6 +82,7 @@ def main():
         agent, baseline,
         ground_truth=ground_truth,
         graph_size=ranker.graph.number_of_nodes(),
+        query_types=query_types,
     )
     results = runner.run_test(queries)
     metrics = runner.metrics(results)

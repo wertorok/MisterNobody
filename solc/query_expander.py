@@ -9,14 +9,17 @@ Query: "{query}"
 
 Schema:
 {{"verbs": [...], "concepts": [...], "entities": [...]}}
-- verbs: action words a programmer might use (lowercase, <=5)
-- concepts: related technical ideas (lowercase, <=5)
-- entities: likely function or class names (preserve casing, <=5)
+- verbs: action words a programmer might use (lowercase)
+- concepts: related technical ideas (lowercase)
+- entities: likely function or class names (preserve casing)
 
-Example for query "print colored output":
-{{"verbs":["print","echo","write","style"],"concepts":["color","ansi","terminal"],"entities":["echo","secho","style"]}}
+Hard limits: max 5 items per list. No duplicates within or across lists.
+No explanations, no questions, no markdown fences. JSON only.
 
-Output the JSON object now. No prose, no questions, no markdown fences."""
+Example for "print colored output":
+{{"verbs":["print","echo","style"],"concepts":["color","ansi","terminal"],"entities":["echo","secho","style"]}}
+
+Output the JSON now."""
 
 _FENCE_RE = re.compile(r"```(?:json)?\s*(\{.*?\})\s*```", re.DOTALL)
 _JSON_RE = re.compile(r"\{.*\}", re.DOTALL)
