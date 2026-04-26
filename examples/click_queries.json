@@ -50,6 +50,32 @@
       "q": "list available commands",
       "type": "indirect",
       "expected": ["_complete_visible_commands", "list_commands", "Group.list_commands"]
+    },
+
+    {
+      "q": "handle errors",
+      "type": "vague",
+      "expected": ["ClickException", "UsageError", "BadParameter", "fail", "abort"]
+    },
+    {
+      "q": "manage context",
+      "type": "vague",
+      "expected": ["Context", "get_current_context", "push_context", "pop_context", "find_root"]
+    },
+    {
+      "q": "parse arguments",
+      "type": "vague",
+      "expected": ["Argument", "Option", "Parameter", "OptionParser", "parse_args"]
+    },
+    {
+      "q": "validate input",
+      "type": "vague",
+      "expected": ["ParamType", "Path", "IntRange", "Choice", "convert", "convert_type"]
+    },
+    {
+      "q": "shell autocompletion",
+      "type": "vague",
+      "expected": ["BashComplete", "ShellComplete", "shell_completion", "get_completion_class"]
     }
   ]
 }

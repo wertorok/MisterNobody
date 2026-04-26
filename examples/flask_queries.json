@@ -1,0 +1,81 @@
+{
+  "queries": [
+    {
+      "q": "render a template",
+      "type": "direct",
+      "expected": ["render_template", "render_template_string"]
+    },
+    {
+      "q": "redirect to url",
+      "type": "direct",
+      "expected": ["redirect", "url_for"]
+    },
+    {
+      "q": "create a blueprint",
+      "type": "direct",
+      "expected": ["Blueprint", "register_blueprint"]
+    },
+    {
+      "q": "abort the request",
+      "type": "direct",
+      "expected": ["abort"]
+    },
+    {
+      "q": "make a response",
+      "type": "direct",
+      "expected": ["make_response", "Response"]
+    },
+
+    {
+      "q": "return JSON data",
+      "type": "indirect",
+      "expected": ["jsonify", "dumps", "loads"]
+    },
+    {
+      "q": "serve static files",
+      "type": "indirect",
+      "expected": ["send_from_directory", "send_file"]
+    },
+    {
+      "q": "handle 404 errors",
+      "type": "indirect",
+      "expected": ["abort", "errorhandler", "HTTPException"]
+    },
+    {
+      "q": "test the application",
+      "type": "indirect",
+      "expected": ["test_client", "FlaskClient"]
+    },
+    {
+      "q": "log application events",
+      "type": "indirect",
+      "expected": ["create_logger", "Flask.logger"]
+    },
+
+    {
+      "q": "manage application config",
+      "type": "vague",
+      "expected": ["Config", "from_object", "ConfigAttribute"]
+    },
+    {
+      "q": "handle url routing",
+      "type": "vague",
+      "expected": ["route", "add_url_rule", "url_for"]
+    },
+    {
+      "q": "send response data",
+      "type": "vague",
+      "expected": ["make_response", "Response", "send_file", "jsonify"]
+    },
+    {
+      "q": "manage user sessions",
+      "type": "vague",
+      "expected": ["session", "SecureCookieSession", "session_interface"]
+    },
+    {
+      "q": "register an extension",
+      "type": "vague",
+      "expected": ["register_blueprint", "Blueprint", "init_app"]
+    }
+  ]
+}
