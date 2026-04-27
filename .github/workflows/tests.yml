@@ -1,0 +1,49 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  playwright:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          playwright install --with-deps chromium
+
+      - name: Restore session (if available)
+        env:
+          HIGGSFIELD_STORAGE_STATE_B64: ${{ secrets.HIGGSFIELD_STORAGE_STATE_B64 }}
+        run: |
+          if [ -n "$HIGGSFIELD_STORAGE_STATE_B64" ]; then
+            echo "$HIGGSFIELD_STORAGE_STATE_B64" | base64 -d > storage_state.json
+            echo "session restored"
+          else
+            echo "no session secret — auth-required tests will skip"
+          fi
+
+      - name: Run tests (skip AI by default)
+        env:
+          HIGGSFIELD_BASE_URL: ${{ vars.HIGGSFIELD_BASE_URL || 'https://higgsfield.ai' }}
+        run: pytest -m "not ai"
+
+      - name: Upload artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: artifacts/
+          retention-days: 7

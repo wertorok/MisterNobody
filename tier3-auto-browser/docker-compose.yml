@@ -1,0 +1,24 @@
+# Tier-3: optional MCP browser server.
+#
+# Spins up auto-browser (https://github.com/LvcidPsyche/auto-browser) so Claude
+# Code (or any MCP client) can drive a real browser at higgsfield.ai with
+# noVNC takeover. Keep this OUT of the regression suite — it's for
+# interactive exploratory QA only.
+#
+# Usage:
+#   git clone https://github.com/LvcidPsyche/auto-browser tier3-auto-browser/upstream
+#   docker compose --project-directory tier3-auto-browser/upstream up --build
+#   open http://localhost:6080  # noVNC
+#
+# Then add to Claude Code MCP config (.claude/settings.json or user-level):
+#   "mcpServers": {
+#     "auto-browser": { "url": "http://localhost:8000/mcp" }
+#   }
+#
+# This compose file is a placeholder so we don't vendor the upstream repo;
+# the real services come from upstream's own docker-compose.yml.
+version: "3.9"
+services:
+  noop:
+    image: alpine:3
+    command: ["echo", "see comments above — clone upstream and run its compose"]
