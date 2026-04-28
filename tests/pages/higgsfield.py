@@ -29,6 +29,19 @@ class HiggsfieldApp:
         """Navigate directly to the image generation page."""
         self.page.goto(APP_IMAGE_URL, wait_until="load", timeout=30_000)
         self.page.wait_for_timeout(2000)
+        self._strip_overlays()
+
+    def _strip_overlays(self) -> None:
+        """Remove banners/captcha frames that intercept clicks."""
+        try:
+            self.page.evaluate(
+                "() => { ['cookiescript_injected_wrapper','onetrust-banner-sdk',"
+                "'cookiescript_injected'].forEach(id => "
+                "document.getElementById(id)?.remove());"
+                "document.querySelectorAll('[id^=ddChallengeContainer]').forEach(el => el.remove()); }"
+            )
+        except Exception:
+            pass
 
     def prompt_input(self) -> Locator:
         # contenteditable div — accessible as role=textbox
@@ -66,11 +79,12 @@ class HiggsfieldApp:
         return GenerationResult(image_locator=result_img, src=src)
 
     def open_history(self) -> Locator:
-        history = self.page.get_by_role("link", name=re.compile("^history$", re.I))
-        if history.count() == 0:
-            history = self.page.get_by_role(
-                "button", name=re.compile("history|library", re.I)
-            )
-        history.first.click()
-        self.page.wait_for_timeout(2000)
-        return self.page.locator("img").first
+        """Activate History tab if not already, then return the first result image."""
+        self._strip_overlays()
+        history_tab = self.page.locator("button[role='tab'][id$='trigger-history']")
+        if history_tab.count() and history_tab.first.get_attribute("data-state") != "active":
+            history_tab.first.dispatch_event("click")
+            self.page.wait_for_timeout(2000)
+        return self.page.locator(
+            "img[src*='higgs.ai'], img[src*='cdn'], img[src*='blob:']"
+        ).first

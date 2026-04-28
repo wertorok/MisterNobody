@@ -75,7 +75,19 @@ _DISMISS_TEXTS = re.compile(
 
 
 def dismiss_overlays(page: Page, max_attempts: int = 3) -> None:
-    """Best-effort: click well-known dismiss controls without failing if absent."""
+    """Best-effort: dismiss known overlay/cookie banners without failing if absent."""
+    # Cookie banners have ad-hoc selectors that intercept clicks — strip them
+    # from the DOM rather than trying to find the right "accept" button.
+    try:
+        page.evaluate(
+            "() => { ['cookiescript_injected_wrapper','onetrust-banner-sdk',"
+            "'cookiescript_injected'].forEach(id => "
+            "document.getElementById(id)?.remove());"
+            "document.querySelectorAll('[id^=ddChallengeContainer]').forEach(el => el.remove()); }"
+        )
+    except Exception:
+        pass
+
     for _ in range(max_attempts):
         clicked = False
         for loc in (
