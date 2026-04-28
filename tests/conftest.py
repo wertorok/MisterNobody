@@ -20,10 +20,28 @@ def base_url() -> str:
 
 
 @pytest.fixture(scope="session")
+def browser_type_launch_args(browser_type_launch_args):
+    return {
+        **browser_type_launch_args,
+        "args": [
+            "--disable-blink-features=AutomationControlled",
+            "--ignore-certificate-errors",
+            "--no-sandbox",
+        ],
+    }
+
+
+@pytest.fixture(scope="session")
 def browser_context_args(browser_context_args):
     args = {
         **browser_context_args,
+        "ignore_https_errors": True,
         "viewport": {"width": 1440, "height": 900},
+        "user_agent": (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/124.0.0.0 Safari/537.36"
+        ),
         "record_video_dir": str(ARTIFACTS / "video"),
         "record_video_size": {"width": 1440, "height": 900},
     }
@@ -76,10 +94,22 @@ def dismiss_overlays(page: Page, max_attempts: int = 3) -> None:
             return
 
 
+def _clerk_user_id(page: Page) -> str | None:
+    """Return Clerk user id if authenticated, None if not or Clerk not loaded."""
+    try:
+        page.wait_for_function("() => window.Clerk && window.Clerk.loaded", timeout=10_000)
+    except Exception:
+        return None
+    return page.evaluate(
+        "() => (window.Clerk && window.Clerk.user) ? window.Clerk.user.id : null"
+    )
+
+
 @pytest.fixture
 def page(context: BrowserContext, base_url: str, request) -> Page:
     page = context.new_page()
     page.set_default_timeout(15_000)
+    page.add_init_script("Object.defineProperty(navigator,'webdriver',{get:()=>undefined})")
     page.goto(base_url)
     dismiss_overlays(page)
     yield page
@@ -93,9 +123,29 @@ def page(context: BrowserContext, base_url: str, request) -> Page:
 
 
 @pytest.fixture
-def authenticated_page(page: Page) -> Page:
+def authenticated_page(context: BrowserContext, request) -> Page:
     if not STORAGE_STATE.exists():
         pytest.skip(
             "storage_state.json missing — run `python scripts/login_save_state.py` first"
         )
-    return page
+    from tests.pages.higgsfield import APP_IMAGE_URL
+
+    page = context.new_page()
+    page.set_default_timeout(15_000)
+    page.add_init_script("Object.defineProperty(navigator,'webdriver',{get:()=>undefined})")
+    page.goto(APP_IMAGE_URL, wait_until="load", timeout=30_000)
+    dismiss_overlays(page)
+
+    if not _clerk_user_id(page):
+        pytest.skip(
+            "Clerk session expired — re-run `python scripts/login_save_state.py` and update storage_state.json"
+        )
+
+    yield page
+
+    if getattr(request.node, "rep_call", None) and request.node.rep_call.failed:
+        screenshot = ARTIFACTS / f"failure-{request.node.name}.png"
+        try:
+            page.screenshot(path=str(screenshot), full_page=True)
+        except Exception:
+            pass

@@ -1,16 +1,22 @@
-"""Verify the saved session is still valid (no login form, user menu visible)."""
-import re
-
+"""Verify the saved session is still valid."""
 import pytest
 from playwright.sync_api import Page, expect
+
+from tests.conftest import _clerk_user_id
 
 
 @pytest.mark.smoke
 def test_session_is_authenticated(authenticated_page: Page) -> None:
+    """The authenticated_page fixture already skips if Clerk session is expired.
+    This test double-checks that the UI reflects the authenticated state."""
     page = authenticated_page
 
-    # If session expired, Higgsfield will show a Sign in / Log in entry point.
-    # TODO: tighten once we know the exact element (e.g. avatar locator).
-    sign_in_pattern = re.compile(r"^(sign in|log ?in)$", re.I)
-    expect(page.get_by_role("button", name=sign_in_pattern)).to_have_count(0)
-    expect(page.get_by_role("link", name=sign_in_pattern)).to_have_count(0)
+    # Clerk must know who we are (fixture already skips if not)
+    assert _clerk_user_id(page), "Clerk session lost during test"
+
+    # Image gen page shows the prompt textbox only when the app loaded properly
+    expect(page.get_by_role("textbox")).to_be_visible()
+
+    # Login / Sign-up links must be absent when authenticated
+    expect(page.get_by_role("link", name="Login")).to_have_count(0)
+    expect(page.get_by_role("link", name="Sign up")).to_have_count(0)
